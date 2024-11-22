@@ -9,7 +9,7 @@ connectDB();
 
 const app = express();
 const corsOptions = {
-    origin: 'http://localhost:3000', // Allow only this origin
+    origin: 'https://finovaii.netlify.app', // Allow only this origin
     methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed HTTP methods
     credentials: true, // Allow cookies or authorization headers
 };
