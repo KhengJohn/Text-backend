@@ -26,6 +26,18 @@ const UserSchema = new mongoose.Schema({
     type: String,
   },
   date: { type: Date, default: Date.now, required: true },
+  address: {
+    type: String,
+    default: "", // You can adjust the type based on your address structure
+  },
+  dob: {
+    type: Date,
+    default: "",
+  },
+  // New fields for ID card
+  idCardType: { type: String, default: "" },
+  idCardNumber: { type: String, default: "" },
+  idCardFile: { type: String, default: "" }, // Store file path or URL
 });
 
 // // Hash password before saving
