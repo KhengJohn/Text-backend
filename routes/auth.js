@@ -2,6 +2,8 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const DepositRequest = require('../models/Deposit');
+const WithdrawRequest  = require('../models/Withdraw');
 const router = express.Router();
 const multer = require('multer');
 const upload = multer({ dest: 'uploads/' }); // You can customize the storage path
@@ -78,7 +80,7 @@ router.post("/login", async (req, res) => {
     if (user.password !== password) {
       return res.status(400).json({ message: "Invalid credentials" });
     }
-    const payload = { userId: user._id, userRole: user.role };
+    const payload = { userId: user._id, userRole: user.role, _id: user._id };
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
       expiresIn: "1h",
     });
@@ -242,4 +244,158 @@ router.post('/submit-document',auth, upload.single('idCardFile'), async (req, re
   }
 });
 
+
+// POST: Create a deposit request
+router.post('/deposit-requests', auth, async (req, res) => {
+  try {
+    const { userId, amount } = req.body;
+
+    if (!userId || !amount) {
+      return res.status(400).json({ message: 'User ID and amount are required.' });
+    }
+
+    const newRequest = new DepositRequest({ userId, amount });
+    await newRequest.save();
+    res.status(201).json({ message: 'Deposit request created successfully.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Internal server error.', error });
+  }
+});
+
+// GET: Fetch deposit requests for a specific user
+router.get('/deposit-requests/:userId',auth,  async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const requests = await DepositRequest.find({ userId }).sort({ createdAt: -1 });
+    res.status(200).json(requests);
+  } catch (error) {
+    res.status(500).json({ message: 'Internal server error.', error });
+  }
+});
+
+// GET: Fetch all deposit requests (Admin)
+router.get('/deposit-requests',auth, isAdmin,async (req, res) => {
+  try {
+    const requests = await DepositRequest.find().populate('userId').sort({ createdAt: -1 });
+    res.status(200).json(requests);
+  } catch (error) {
+    res.status(500).json({ message: 'Internal server error.', error });
+  }
+});
+
+// PATCH: Update deposit request status
+router.patch('/deposit-requests/:id', auth, isAdmin,async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    // Validate status
+    if (!['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ message: 'Invalid status. Use "approved" or "rejected".' });
+    }
+
+    // Find the deposit request
+    const depositRequest = await DepositRequest.findById(id);
+    if (!depositRequest) {
+      return res.status(404).json({ message: 'Deposit request not found.' });
+    }
+
+    // Update status
+    depositRequest.status = status;
+    depositRequest.updatedAt = new Date();
+    await depositRequest.save();
+
+    // If approved, update the user's balance
+    if (status === 'approved') {
+      const user = await User.findById(depositRequest.userId);
+      if (!user) {
+        return res.status(404).json({ message: 'User not found.' });
+      }
+
+      user.balance += depositRequest.amount; // Add the deposit amount to the balance
+      await user.save();
+    }
+
+    res.status(200).json({ message: `Request ${status} successfully.`, depositRequest });
+  } catch (error) {
+    res.status(500).json({ message: 'Internal server error.', error });
+  }
+});
+
+// POST: Create a withdraw request
+router.post('/withdraw-requests', auth, async (req, res) => {
+  try {
+    const { userId, amount } = req.body;
+
+    if (!userId || !amount) {
+      return res.status(400).json({ message: 'User ID and amount are required.' });
+    }
+
+    const newRequest = new WithdrawRequest({ userId, amount });
+    await newRequest.save();
+    res.status(201).json({ message: 'Withdraw request created successfully.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Internal server error.', error });
+  }
+});
+
+// GET: Fetch withdraw requests for a specific user
+router.get('/withdraw-requests/:userId',auth,  async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const requests = await WithdrawRequest.find({ userId }).sort({ createdAt: -1 });
+    res.status(200).json(requests);
+  } catch (error) {
+    res.status(500).json({ message: 'Internal server error.', error });
+  }
+});
+
+// GET: Fetch all withdraw requests (Admin)
+router.get('/withdraw-requests',auth, isAdmin,async (req, res) => {
+  try {
+    const requests = await WithdrawRequest.find().populate('userId').sort({ createdAt: -1 });
+    res.status(200).json(requests);
+  } catch (error) {
+    res.status(500).json({ message: 'Internal server error.', error });
+  }
+});
+
+// PATCH: Update withdraw request status
+router.patch('/withdraw-requests/:id', auth, isAdmin,async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    // Validate status
+    if (!['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ message: 'Invalid status. Use "approved" or "rejected".' });
+    }
+
+    // Find the withdraw request
+    const withdrawRequest = await WithdrawRequest.findById(id);
+    if (!withdrawRequest) {
+      return res.status(404).json({ message: 'Withdraw request not found.' });
+    }
+
+    // Update status
+    withdrawRequest.status = status;
+    withdrawRequest.updatedAt = new Date();
+    await withdrawRequest.save();
+
+    // If approved, update the user's balance
+    if (status === 'approved') {
+      const user = await User.findById(withdrawRequest.userId);
+      if (!user) {
+        return res.status(404).json({ message: 'User not found.' });
+      }
+
+      user.balance -= withdrawRequest.amount; // remove the withdraw amount to the balance
+      await user.save();
+    }
+
+    res.status(200).json({ message: `Request ${status} successfully.`, withdrawRequest });
+  } catch (error) {
+    res.status(500).json({ message: 'Internal server error.', error });
+  }
+});
 module.exports = router;
