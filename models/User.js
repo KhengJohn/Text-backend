@@ -1,6 +1,12 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 
+const bankAccountSchema = new mongoose.Schema({
+  bankName: { type: String, required: true },
+  accountNumber: { type: String, required: true },
+  accountHolderName: { type: String, required: true },
+  isVerified: { type: Boolean, default: false },
+});
 const UserSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
@@ -38,6 +44,8 @@ const UserSchema = new mongoose.Schema({
   idCardType: { type: String, default: "" },
   idCardNumber: { type: String, default: "" },
   idCardFile: { type: String, default: "" }, // Store file path or URL
+  bankAccounts: [bankAccountSchema],
+  investments: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Investment' }] // Array of Investment references
 });
 
 // // Hash password before saving
